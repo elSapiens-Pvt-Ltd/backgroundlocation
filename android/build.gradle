@@ -56,4 +56,7 @@ dependencies {
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
     implementation 'com.google.android.gms:play-services-location:21.3.0'
+    // Native delivery of geofence crossings to a server, retried once online
+    // even with the app never opened (GeofenceReporter).
+    implementation 'androidx.work:work-runtime:2.9.1'
 }

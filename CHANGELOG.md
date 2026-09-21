@@ -5,6 +5,25 @@ All notable changes to the Elsapiens Background Location Plugin are documented i
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-09-21
+
+### Added
+- **Native crossing reports** — `addGeofence({ report: { url, authToken } })`
+  posts every crossing of the region to a server from native code, so a
+  crossing reaches the server with the app closed. Reports are persisted and
+  sent strictly in order (an entry must never arrive before the exit it
+  answers); failures stay queued and retry — on Android through WorkManager
+  once a network is available, on iOS at the next wake (another crossing, the
+  app opening, the plugin loading). A 401/403 means the credential was revoked:
+  what is queued for the region is dropped and the region stops being watched.
+  `listGeofences` returns the report URL but never the token.
+- **Per-direction notifications** — `enterNotification` / `exitNotification`
+  override `notification`, since arriving and leaving usually need different
+  words.
+
+### Changed
+- Android now depends on `androidx.work:work-runtime` for report delivery.
+
 ## [0.3.0] - 2026-08-31
 
 ### Added

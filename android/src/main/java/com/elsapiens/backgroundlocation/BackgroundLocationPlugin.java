@@ -114,6 +114,9 @@ public class BackgroundLocationPlugin extends Plugin {
             stateStore = new TrackingStateStore(new SharedPrefsKeyValueStore(context));
             trackingManager = new LocationTrackingManager(context, permissionManager, stateStore);
             geofenceManager = new GeofenceManager(context, new SharedPrefsKeyValueStore(context));
+            // Crossings queued while offline go out as soon as there is a
+            // network — WorkManager holds the retry if there is none now.
+            GeofenceReporter.schedule(context);
             registerLocationReceiver(context);
             Log.d(TAG, "BackgroundLocationPlugin initialized");
         } catch (Exception e) {
@@ -853,10 +856,24 @@ public class BackgroundLocationPlugin extends Plugin {
             definition.put("radius", radius);
             definition.put("notifyOnEntry", call.getBoolean("notifyOnEntry", true));
             definition.put("notifyOnExit", call.getBoolean("notifyOnExit", false));
-            JSObject notification = call.getObject("notification");
-            if (notification != null && notification.getString("title") != null
-                    && notification.getString("body") != null) {
-                definition.put("notification", new JSONObject(notification.toString()));
+            // The general notification, then direction-specific ones that win
+            // over it: leaving and coming back usually need saying differently.
+            for (String key : new String[] {"notification", "enterNotification", "exitNotification"}) {
+                JSObject spec = call.getObject(key);
+                if (spec != null && spec.getString("title") != null && spec.getString("body") != null) {
+                    definition.put(key, new JSONObject(spec.toString()));
+                }
+            }
+            // Where crossings are posted natively — see GeofenceReporter.
+            JSObject report = call.getObject("report");
+            if (report != null && report.getString("url") != null && !report.getString("url").isEmpty()) {
+                JSONObject reportSpec = new JSONObject();
+                reportSpec.put("url", report.getString("url"));
+                String token = report.getString("authToken");
+                if (token != null) {
+                    reportSpec.put("authToken", token);
+                }
+                definition.put("report", reportSpec);
             }
             geofenceManager.add(definition);
             call.resolve();
@@ -890,10 +907,30 @@ public class BackgroundLocationPlugin extends Plugin {
         JSObject result = new JSObject();
         JSONArray geofences = new JSONArray();
         for (JSONObject definition : geofenceManager.definitions()) {
-            geofences.put(definition);
+            geofences.put(withoutReportToken(definition));
         }
         result.put("geofences", geofences);
         call.resolve(result);
+    }
+
+    /**
+     * The report URL only — never the token. Lets the app confirm a region is
+     * still reporting without handing its credential back to JavaScript.
+     */
+    private static JSONObject withoutReportToken(JSONObject definition) {
+        JSONObject report = definition.optJSONObject("report");
+        if (report == null) {
+            return definition;
+        }
+        try {
+            JSONObject copy = new JSONObject(definition.toString());
+            JSONObject safe = new JSONObject();
+            safe.put("url", report.optString("url", ""));
+            copy.put("report", safe);
+            return copy;
+        } catch (JSONException e) {
+            return definition;
+        }
     }
 
     @PluginMethod

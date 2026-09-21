@@ -41,6 +41,33 @@ export interface Geofence {
    * ever runs.
    */
   notification?: GeofenceNotification;
+  /** Posted instead of `notification` when the device enters the region. */
+  enterNotification?: GeofenceNotification;
+  /** Posted instead of `notification` when the device leaves the region. */
+  exitNotification?: GeofenceNotification;
+  /**
+   * Post every crossing of this region to a server, natively.
+   *
+   * For anything that has to ACT on a crossing (an automatic break, an
+   * end-of-day punch-out). A crossing usually happens with the app dead, and a
+   * JavaScript listener may not run until the user next opens the app — far
+   * too late. With `report`, the native layer POSTs the transition itself
+   * (the same JSON as the `geofenceTransition` event, minus `buffered`),
+   * queued and retried in order until delivered, with the app never opened.
+   *
+   * The server should answer 401 or 403 once `authToken` is no longer valid;
+   * the plugin then discards what is queued for the region and stops
+   * watching it. `listGeofences` returns the URL but never the token.
+   */
+  report?: GeofenceReport;
+}
+
+/** Where a region's crossings are posted. */
+export interface GeofenceReport {
+  /** Absolute URL that receives a POST per crossing. */
+  url: string;
+  /** Sent as `Authorization: Bearer <authToken>`. */
+  authToken?: string;
 }
 
 /** Local notification posted natively when a region fires. */

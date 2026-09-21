@@ -76,9 +76,21 @@ public class GeofenceBroadcastReceiver extends BroadcastReceiver {
                 continue;
             }
 
-            JSONObject notification = definition.optJSONObject("notification");
+            // A direction-specific message wins over the general one.
+            JSONObject notification = definition.optJSONObject(
+                    "enter".equals(transition) ? "enterNotification" : "exitNotification");
+            if (notification == null) {
+                notification = definition.optJSONObject("notification");
+            }
             if (notification != null) {
                 post(context, id, notification);
+            }
+
+            // Then the server, natively: this is the path that has to work with
+            // the app dead. WorkManager delivers it, retrying until online.
+            JSONObject report = definition.optJSONObject("report");
+            if (report != null) {
+                GeofenceReporter.enqueue(context, id, report, payload);
             }
 
             if (plugin != null && plugin.hasGeofenceListener()) {

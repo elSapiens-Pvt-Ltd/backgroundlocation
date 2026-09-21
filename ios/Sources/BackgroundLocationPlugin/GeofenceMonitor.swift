@@ -34,6 +34,9 @@ final class GeofenceMonitor: NSObject {
     private let manager = CLLocationManager()
     private let store: KeyValueStore
     private let permissions: LocationPermissionManager
+    /// Posts crossings to a server natively, for regions registered with a
+    /// `report` — see GeofenceReporter for why this cannot wait for JS.
+    let reporter: GeofenceReporter
 
     weak var eventSink: BackgroundLocationEventSink?
 
@@ -45,9 +48,23 @@ final class GeofenceMonitor: NSObject {
     init(permissions: LocationPermissionManager, store: KeyValueStore) {
         self.permissions = permissions
         self.store = store
+        self.reporter = GeofenceReporter(store: store)
         super.init()
         manager.delegate = self
         manager.allowsBackgroundLocationUpdates = false
+        reporter.onCredentialRevoked = { [weak self] regionID in
+            // CLLocationManager belongs to the main thread; the reporter calls
+            // back from URLSession's queue.
+            DispatchQueue.main.async { self?.remove(id: regionID) }
+        }
+    }
+
+    /// Sends anything still queued from earlier crossings. Called whenever the
+    /// app gets a chance to run — plugin load, returning to the foreground —
+    /// so a crossing that happened offline is delivered at the first moment it
+    /// can be.
+    func flushReports() {
+        reporter.flush()
     }
 
     // MARK: - Registration
@@ -150,9 +167,19 @@ final class GeofenceMonitor: NSObject {
 
         // The notification goes out first and unconditionally. It is the only
         // part of this the user actually sees, and it must not depend on the
-        // webview booting before iOS suspends the app again.
-        if let notification = definition.notification {
+        // webview booting before iOS suspends the app again. A direction-
+        // specific message wins over the general one: leaving and coming back
+        // usually need saying differently.
+        let directional = transition == .enter ? definition.enterNotification : definition.exitNotification
+        if let notification = directional ?? definition.notification {
             post(notification, for: regionID)
+        }
+
+        // Then the server, natively and before anything JavaScript-bound: this
+        // is the path that has to work with the app dead.
+        if let report = definition.report {
+            reporter.enqueue(regionID: regionID, report: report, transition: event)
+            reporter.flush()
         }
 
         if hasLiveListener() {
@@ -248,6 +275,11 @@ struct GeofenceDefinition: Codable {
     let notifyOnEntry: Bool
     let notifyOnExit: Bool
     let notification: GeofenceNotificationSpec?
+    // Added in 0.4.0. Optional, so definitions stored by an earlier version
+    // still decode — a missing key reads as nil.
+    var enterNotification: GeofenceNotificationSpec? = nil
+    var exitNotification: GeofenceNotificationSpec? = nil
+    var report: GeofenceReportSpec? = nil
 }
 
 enum GeofenceTransitionKind: String {

@@ -60,6 +60,9 @@ public class BackgroundLocationPlugin: CAPPlugin, CAPBridgedPlugin {
             self?.hasListeners("geofenceTransition") ?? false
         }
         location.resumeSessionsIfNeeded()
+        // Crossings queued while offline (or while the app was relaunched for
+        // a region event and suspended again mid-send) go out now.
+        location.geofences.flushReports()
         #if canImport(UIKit)
         NotificationCenter.default.addObserver(
             self, selector: #selector(applicationDidBecomeActive),
@@ -76,6 +79,7 @@ public class BackgroundLocationPlugin: CAPPlugin, CAPBridgedPlugin {
         // lapsed while suspended, this puts it back in the exact same state as a
         // fresh start with the persisted parameters. Idempotent when already active.
         location.resumeSessionsIfNeeded()
+        location.geofences.flushReports()
     }
 
     // MARK: Permissions
@@ -422,11 +426,17 @@ public class BackgroundLocationPlugin: CAPPlugin, CAPBridgedPlugin {
             return
         }
 
-        var notification: GeofenceNotificationSpec?
-        if let spec = call.getObject("notification"),
-           let title = spec["title"] as? String,
-           let body = spec["body"] as? String {
-            notification = GeofenceNotificationSpec(title: title, body: body)
+        func notificationSpec(_ key: String) -> GeofenceNotificationSpec? {
+            guard let spec = call.getObject(key),
+                  let title = spec["title"] as? String,
+                  let body = spec["body"] as? String else { return nil }
+            return GeofenceNotificationSpec(title: title, body: body)
+        }
+        let notification = notificationSpec("notification")
+
+        var report: GeofenceReportSpec?
+        if let spec = call.getObject("report"), let url = spec["url"] as? String, !url.isEmpty {
+            report = GeofenceReportSpec(url: url, authToken: spec["authToken"] as? String)
         }
 
         let definition = GeofenceDefinition(
@@ -436,7 +446,10 @@ public class BackgroundLocationPlugin: CAPPlugin, CAPBridgedPlugin {
             radius: radius,
             notifyOnEntry: call.getBool("notifyOnEntry") ?? true,
             notifyOnExit: call.getBool("notifyOnExit") ?? false,
-            notification: notification
+            notification: notification,
+            enterNotification: notificationSpec("enterNotification"),
+            exitNotification: notificationSpec("exitNotification"),
+            report: report
         )
 
         do {
@@ -494,6 +507,17 @@ public class BackgroundLocationPlugin: CAPPlugin, CAPBridgedPlugin {
         ]
         if let notification = definition.notification {
             dict["notification"] = ["title": notification.title, "body": notification.body]
+        }
+        if let notification = definition.enterNotification {
+            dict["enterNotification"] = ["title": notification.title, "body": notification.body]
+        }
+        if let notification = definition.exitNotification {
+            dict["exitNotification"] = ["title": notification.title, "body": notification.body]
+        }
+        // The URL only — never the token. Lets the app confirm a region is
+        // still reporting without handing its credential back to JavaScript.
+        if let report = definition.report {
+            dict["report"] = ["url": report.url]
         }
         return dict
     }

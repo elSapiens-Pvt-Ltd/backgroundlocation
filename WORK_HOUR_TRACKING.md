@@ -25,7 +25,7 @@ Work Hour Tracking is designed for tracking engineer locations throughout their 
 - Android foreground service for background operation
 - HTTP POST uploads with authentication support
 - Location accuracy optimized for battery life (balanced power)
-- Minimum 50-meter distance filter to reduce noise
+- Minimum 50-meter distance filter by default (`minDistance`); set `minDistance: 0` for a fix every interval even when stationary, so the server can tell "not moving" from "phone off"
 - Automatic permission handling
 
 ## Usage
@@ -195,6 +195,7 @@ interface WorkHourTrackingOptions {
   serverUrl: string;           // Required: HTTP endpoint for uploads
   authToken?: string;          // Optional: Authentication token
   enableOfflineQueue?: boolean; // Optional: Enable offline queueing (default: true)
+  minDistance?: number;         // Optional: Meters of movement per fix (default: 50; 0 = heartbeat)
 }
 ```
 

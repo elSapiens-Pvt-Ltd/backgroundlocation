@@ -28,11 +28,13 @@ public class TrackingStateStore {
     private static final String KEY_WORK_HOUR_SERVER_URL = "work_hour_server_url";
     private static final String KEY_WORK_HOUR_AUTH_TOKEN = "work_hour_auth_token";
     private static final String KEY_WORK_HOUR_OFFLINE_QUEUE = "work_hour_offline_queue";
+    private static final String KEY_WORK_HOUR_MIN_DISTANCE = "work_hour_min_distance";
 
     public static final long DEFAULT_INTERVAL_MS = 3000L;
     public static final float DEFAULT_MIN_DISTANCE_METERS = 10.0f;
     public static final float DEFAULT_MAX_ACCURACY_METERS = 30.0f;
     public static final long DEFAULT_UPLOAD_INTERVAL_MS = 300000L;
+    public static final float DEFAULT_WORK_HOUR_MIN_DISTANCE_METERS = 50.0f;
 
     private final KeyValueStore store;
 
@@ -95,6 +97,7 @@ public class TrackingStateStore {
         store.putString(KEY_WORK_HOUR_SERVER_URL, state.serverUrl);
         store.putString(KEY_WORK_HOUR_AUTH_TOKEN, state.authToken);
         store.putBoolean(KEY_WORK_HOUR_OFFLINE_QUEUE, state.enableOfflineQueue);
+        store.putFloat(KEY_WORK_HOUR_MIN_DISTANCE, state.minDistance);
     }
 
     public void clearWorkHourTracking() {
@@ -123,7 +126,9 @@ public class TrackingStateStore {
             store.getLong(KEY_WORK_HOUR_UPLOAD_INTERVAL, DEFAULT_UPLOAD_INTERVAL_MS),
             serverUrl,
             store.getString(KEY_WORK_HOUR_AUTH_TOKEN, null),
-            store.getBoolean(KEY_WORK_HOUR_OFFLINE_QUEUE, true)
+            store.getBoolean(KEY_WORK_HOUR_OFFLINE_QUEUE, true),
+            // Sessions saved before minDistance existed keep the old fixed 50 m
+            store.getFloat(KEY_WORK_HOUR_MIN_DISTANCE, DEFAULT_WORK_HOUR_MIN_DISTANCE_METERS)
         );
     }
 
@@ -158,14 +163,23 @@ public class TrackingStateStore {
         public final String serverUrl;
         public final String authToken;
         public final boolean enableOfflineQueue;
+        /** Meters of movement between queued fixes; 0 queues one every interval (heartbeat). */
+        public final float minDistance;
 
         public WorkHourState(String engineerId, long uploadInterval, String serverUrl, String authToken,
                 boolean enableOfflineQueue) {
+            this(engineerId, uploadInterval, serverUrl, authToken, enableOfflineQueue,
+                DEFAULT_WORK_HOUR_MIN_DISTANCE_METERS);
+        }
+
+        public WorkHourState(String engineerId, long uploadInterval, String serverUrl, String authToken,
+                boolean enableOfflineQueue, float minDistance) {
             this.engineerId = engineerId;
             this.uploadInterval = uploadInterval;
             this.serverUrl = serverUrl;
             this.authToken = authToken;
             this.enableOfflineQueue = enableOfflineQueue;
+            this.minDistance = Math.max(0f, minDistance);
         }
     }
 }

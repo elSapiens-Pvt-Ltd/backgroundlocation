@@ -34,6 +34,7 @@ public class WorkHourLocationService extends Service {
     public static final String EXTRA_SERVER_URL = "serverUrl";
     public static final String EXTRA_AUTH_TOKEN = "authToken";
     public static final String EXTRA_OFFLINE_QUEUE = "enableOfflineQueue";
+    public static final String EXTRA_MIN_DISTANCE = "minDistance";
 
     private FusedLocationProviderClient fusedLocationClient;
     private LocationCallback locationCallback;
@@ -47,6 +48,7 @@ public class WorkHourLocationService extends Service {
     private String serverUrl;
     private String authToken;
     private boolean enableOfflineQueue = true;
+    private float minDistance = TrackingStateStore.DEFAULT_WORK_HOUR_MIN_DISTANCE_METERS;
     private boolean isForeground = false;
 
     @Override
@@ -104,6 +106,7 @@ public class WorkHourLocationService extends Service {
             serverUrl = intent.getStringExtra(EXTRA_SERVER_URL);
             authToken = intent.getStringExtra(EXTRA_AUTH_TOKEN);
             enableOfflineQueue = intent.getBooleanExtra(EXTRA_OFFLINE_QUEUE, true);
+            minDistance = intent.getFloatExtra(EXTRA_MIN_DISTANCE, TrackingStateStore.DEFAULT_WORK_HOUR_MIN_DISTANCE_METERS);
         } else {
             TrackingStateStore.WorkHourState saved = stateStore.getWorkHourTracking();
             if (saved == null) {
@@ -114,6 +117,7 @@ public class WorkHourLocationService extends Service {
             serverUrl = saved.serverUrl;
             authToken = saved.authToken;
             enableOfflineQueue = saved.enableOfflineQueue;
+            minDistance = saved.minDistance;
         }
         return engineerId != null && !engineerId.isEmpty() && serverUrl != null && !serverUrl.isEmpty();
     }
@@ -148,7 +152,8 @@ public class WorkHourLocationService extends Service {
         LocationRequest locationRequest = new LocationRequest.Builder(
                 Priority.PRIORITY_BALANCED_POWER_ACCURACY,
                 uploadInterval)
-            .setMinUpdateDistanceMeters(50.0f)
+            // 0 = a fix every interval even when stationary (a heartbeat for "last seen")
+            .setMinUpdateDistanceMeters(Math.max(0f, minDistance))
             .setMaxUpdateAgeMillis(uploadInterval)
             .setWaitForAccurateLocation(false)
             .build();

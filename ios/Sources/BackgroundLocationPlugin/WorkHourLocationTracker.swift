@@ -25,6 +25,7 @@ final class WorkHourLocationTracker: NSObject, CLLocationManagerDelegate {
     /// the same `uploadInterval`, wasting battery and queue space.
     private var sampleIntervalSeconds: Double = TrackingStateStore.defaultUploadIntervalSeconds
     private var lastSampledAt: Date?
+    private var minDistance: Double = TrackingStateStore.defaultWorkHourMinDistanceMeters
     private(set) var isActive = false
 
     init(permissions: LocationPermissionManager, stateStore: TrackingStateStore) {
@@ -35,7 +36,9 @@ final class WorkHourLocationTracker: NSObject, CLLocationManagerDelegate {
     }
 
     func start(engineerId: String, uploadInterval: Double, serverUrl: String, authToken: String?,
-               enableOfflineQueue: Bool, completion: @escaping (TaskLocationTracker.StartResult) -> Void) {
+               enableOfflineQueue: Bool,
+               minDistance: Double = TrackingStateStore.defaultWorkHourMinDistanceMeters,
+               completion: @escaping (TaskLocationTracker.StartResult) -> Void) {
         guard !engineerId.isEmpty else {
             completion(.failure(.missingParameter, "engineerId must not be empty"))
             return
@@ -64,13 +67,15 @@ final class WorkHourLocationTracker: NSObject, CLLocationManagerDelegate {
 
             self.stateStore.saveWorkHourTracking(TrackingStateStore.WorkHourState(
                 engineerId: engineerId, uploadInterval: uploadInterval, serverUrl: serverUrl,
-                authToken: authToken, enableOfflineQueue: enableOfflineQueue))
+                authToken: authToken, enableOfflineQueue: enableOfflineQueue,
+                minDistance: max(0, minDistance)))
 
             self.uploader?.stop()
             self.uploader = uploader
             self.engineerId = engineerId
             self.sampleIntervalSeconds = uploadInterval > 0 ? uploadInterval : TrackingStateStore.defaultUploadIntervalSeconds
             self.lastSampledAt = nil
+            self.minDistance = max(0, minDistance)
             self.beginSampling()
             uploader.start()
 
@@ -95,7 +100,8 @@ final class WorkHourLocationTracker: NSObject, CLLocationManagerDelegate {
         guard !isActive, let saved = stateStore.getWorkHourTracking() else { return }
         guard permissions.hasForegroundLocationPermission else { return }
         start(engineerId: saved.engineerId, uploadInterval: saved.uploadInterval, serverUrl: saved.serverUrl,
-              authToken: saved.authToken, enableOfflineQueue: saved.enableOfflineQueue) { _ in }
+              authToken: saved.authToken, enableOfflineQueue: saved.enableOfflineQueue,
+              minDistance: saved.minDistance) { _ in }
     }
 
     func queueSnapshot() -> [WorkHourLocationData] {
@@ -109,7 +115,9 @@ final class WorkHourLocationTracker: NSObject, CLLocationManagerDelegate {
 
     private func beginSampling() {
         manager.desiredAccuracy = kCLLocationAccuracyHundredMeters
-        manager.distanceFilter = 50
+        // 0 = no distance filter: the time gate alone paces fixes, so a stationary
+        // device still reports once per interval (a heartbeat for "last seen")
+        manager.distanceFilter = minDistance > 0 ? minDistance : kCLDistanceFilterNone
         manager.pausesLocationUpdatesAutomatically = false
         manager.activityType = .other
 

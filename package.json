@@ -1,6 +1,6 @@
 {
   "name": "elsapiens-background-location",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Save background location in sql lite and make available to cpacitor subscription when app is active",
   "main": "dist/plugin.cjs.js",
   "module": "dist/esm/index.js",

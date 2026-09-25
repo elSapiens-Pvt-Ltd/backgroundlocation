@@ -300,6 +300,24 @@ export interface WorkHourTrackingOptions {
   authToken?: string;
   /** Keep fixes queued across failed uploads (default true). */
   enableOfflineQueue?: boolean;
+  /**
+   * Minimum movement in meters before a new fix is queued. Default 50.
+   *
+   * With the default, a device that stays put produces no fixes, so the server
+   * cannot tell "has not moved" from "phone off or app killed". Set `0` to queue a
+   * fix every `uploadInterval` regardless of movement: the upload then doubles as a
+   * heartbeat, which is what a live "last seen" view needs.
+   */
+  minDistance?: number;
+}
+
+export interface BatteryOptimizationStatus {
+  /**
+   * true when the OS exempts this app from battery optimization (Android "Don't
+   * optimize" / "Unrestricted"). Always true on iOS and web, which have no such
+   * setting.
+   */
+  ignoring: boolean;
 }
 
 export interface WorkHourUploadResult {
@@ -364,6 +382,23 @@ export interface BackgroundLocationPlugin {
 
   /** Open the device location-services settings — for the GPS-off case. */
   openDeviceLocationSettings(): Promise<void>;
+
+  /**
+   * Whether the app is exempt from battery optimization. On Android, an
+   * optimized app's tracking service can be delayed by Doze and killed outright by
+   * vendor battery managers (Xiaomi, Oppo, Vivo, Samsung), so work-hour uploads
+   * stop for hours. Check this before relying on all-day tracking.
+   */
+  isIgnoringBatteryOptimizations(): Promise<BatteryOptimizationStatus>;
+
+  /**
+   * Open the system screen where the user exempts the app from battery
+   * optimization (falls back to the app's settings page). The plugin never shows
+   * the one-tap `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` dialog: that permission is
+   * restricted by Google Play policy, and declaring it would leak into every
+   * consuming app. No-op on iOS and web.
+   */
+  openBatteryOptimizationSettings(): Promise<void>;
 
   /**
    * Start recording a route under `reference`.

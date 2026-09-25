@@ -884,6 +884,8 @@ This project is licensed under the [MIT License](LICENSE).
 * [`isLocationServiceEnabled()`](#islocationserviceenabled)
 * [`openLocationSettings()`](#openlocationsettings)
 * [`openDeviceLocationSettings()`](#opendevicelocationsettings)
+* [`isIgnoringBatteryOptimizations()`](#isignoringbatteryoptimizations)
+* [`openBatteryOptimizationSettings()`](#openbatteryoptimizationsettings)
 * [`startTracking(...)`](#starttracking)
 * [`stopTracking()`](#stoptracking)
 * [`getTrackingStatus()`](#gettrackingstatus)
@@ -1014,6 +1016,37 @@ openDeviceLocationSettings() => Promise<void>
 ```
 
 Open the device location-services settings — for the GPS-off case.
+
+--------------------
+
+
+### isIgnoringBatteryOptimizations()
+
+```typescript
+isIgnoringBatteryOptimizations() => Promise<BatteryOptimizationStatus>
+```
+
+Whether the app is exempt from battery optimization. On Android, an
+optimized app's tracking service can be delayed by Doze and killed outright by
+vendor battery managers (Xiaomi, Oppo, Vivo, Samsung), so work-hour uploads
+stop for hours. Check this before relying on all-day tracking.
+
+**Returns:** <code>Promise&lt;<a href="#batteryoptimizationstatus">BatteryOptimizationStatus</a>&gt;</code>
+
+--------------------
+
+
+### openBatteryOptimizationSettings()
+
+```typescript
+openBatteryOptimizationSettings() => Promise<void>
+```
+
+Open the system screen where the user exempts the app from battery
+optimization (falls back to the app's settings page). The plugin never shows
+the one-tap `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` dialog: that permission is
+restricted by Google Play policy, and declaring it would leak into every
+consuming app. No-op on iOS and web.
 
 --------------------
 
@@ -1486,6 +1519,13 @@ Remove all listeners registered by this plugin.
 | **`permissions`** | <code>('location' \| 'backgroundLocation')[]</code> | Which permission tiers to request. Defaults to both, requested in the required order: foreground first (system dialog), then background (Android opens the app's location settings where the user picks "Allow all the time"). Best practice: request `['location']` when tracking starts, and request `['backgroundLocation']` separately after explaining why you need it. |
 
 
+#### BatteryOptimizationStatus
+
+| Prop           | Type                 | Description                                                                                                                                                      |
+| -------------- | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`ignoring`** | <code>boolean</code> | true when the OS exempts this app from battery optimization (Android "Don't optimize" / "Unrestricted"). Always true on iOS and web, which have no such setting. |
+
+
 #### StartTrackingResult
 
 | Prop                            | Type                                                                    | Description                                                                                                                                                                                                                     |
@@ -1559,13 +1599,14 @@ Remove all listeners registered by this plugin.
 
 #### WorkHourTrackingOptions
 
-| Prop                     | Type                 | Description                                                                         |
-| ------------------------ | -------------------- | ----------------------------------------------------------------------------------- |
-| **`engineerId`**         | <code>string</code>  | Identifier sent with every upload. Required.                                        |
-| **`uploadInterval`**     | <code>number</code>  | Upload (and sampling) interval in milliseconds. Default 300000 (5 minutes).         |
-| **`serverUrl`**          | <code>string</code>  | Endpoint that receives `{engineerId, timestamp, locations: [...]}` POSTs. Required. |
-| **`authToken`**          | <code>string</code>  | Sent as a Bearer token in the Authorization header.                                 |
-| **`enableOfflineQueue`** | <code>boolean</code> | Keep fixes queued across failed uploads (default true).                             |
+| Prop                     | Type                 | Description                                                                                                                                                                                                                                                                                                                                                          |
+| ------------------------ | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`engineerId`**         | <code>string</code>  | Identifier sent with every upload. Required.                                                                                                                                                                                                                                                                                                                         |
+| **`uploadInterval`**     | <code>number</code>  | Upload (and sampling) interval in milliseconds. Default 300000 (5 minutes).                                                                                                                                                                                                                                                                                          |
+| **`serverUrl`**          | <code>string</code>  | Endpoint that receives `{engineerId, timestamp, locations: [...]}` POSTs. Required.                                                                                                                                                                                                                                                                                  |
+| **`authToken`**          | <code>string</code>  | Sent as a Bearer token in the Authorization header.                                                                                                                                                                                                                                                                                                                  |
+| **`enableOfflineQueue`** | <code>boolean</code> | Keep fixes queued across failed uploads (default true).                                                                                                                                                                                                                                                                                                              |
+| **`minDistance`**        | <code>number</code>  | Minimum movement in meters before a new fix is queued. Default 50. With the default, a device that stays put produces no fixes, so the server cannot tell "has not moved" from "phone off or app killed". Set `0` to queue a fix every `uploadInterval` regardless of movement: the upload then doubles as a heartbeat, which is what a live "last seen" view needs. |
 
 
 #### WorkHourLocationData

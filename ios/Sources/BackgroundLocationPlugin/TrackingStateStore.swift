@@ -26,11 +26,15 @@ final class TrackingStateStore {
     private static let keyWorkHourServerUrl = "work_hour_server_url"
     private static let keyWorkHourAuthToken = "work_hour_auth_token"
     private static let keyWorkHourOfflineQueue = "work_hour_offline_queue"
+    // Stored as a string: KeyValueStore.double returns 0 for a missing key, and 0 is
+    // a meaningful value here (heartbeat mode).
+    private static let keyWorkHourMinDistance = "work_hour_min_distance"
 
     static let defaultIntervalSeconds: Double = 3.0
     static let defaultMinDistanceMeters: Double = 10.0
     static let defaultMaxAccuracyMeters: Double = 30.0
     static let defaultUploadIntervalSeconds: Double = 300.0
+    static let defaultWorkHourMinDistanceMeters: Double = 50.0
 
     private let store: KeyValueStore
 
@@ -94,6 +98,8 @@ final class TrackingStateStore {
         let serverUrl: String
         let authToken: String?
         let enableOfflineQueue: Bool
+        /// Meters of movement between queued fixes; 0 queues one every interval (heartbeat).
+        var minDistance: Double = TrackingStateStore.defaultWorkHourMinDistanceMeters
     }
 
     func saveWorkHourTracking(_ state: WorkHourState) {
@@ -103,6 +109,7 @@ final class TrackingStateStore {
         store.set(state.serverUrl, forKey: Self.keyWorkHourServerUrl)
         store.set(state.authToken, forKey: Self.keyWorkHourAuthToken)
         store.set(state.enableOfflineQueue, forKey: Self.keyWorkHourOfflineQueue)
+        store.set(String(state.minDistance), forKey: Self.keyWorkHourMinDistance)
     }
 
     func clearWorkHourTracking() {
@@ -129,7 +136,9 @@ final class TrackingStateStore {
             uploadInterval: uploadInterval > 0 ? uploadInterval : Self.defaultUploadIntervalSeconds,
             serverUrl: serverUrl,
             authToken: store.string(forKey: Self.keyWorkHourAuthToken),
-            enableOfflineQueue: store.bool(forKey: Self.keyWorkHourOfflineQueue)
+            enableOfflineQueue: store.bool(forKey: Self.keyWorkHourOfflineQueue),
+            minDistance: store.string(forKey: Self.keyWorkHourMinDistance).flatMap(Double.init)
+                ?? Self.defaultWorkHourMinDistanceMeters
         )
     }
 }

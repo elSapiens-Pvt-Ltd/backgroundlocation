@@ -124,6 +124,7 @@ Start work hour tracking that periodically uploads location to a server.
 - `uploadInterval` (number, optional): Upload interval in milliseconds (default: 300000 = 5 minutes)
 - `authToken` (string, optional): Authentication token for server requests
 - `enableOfflineQueue` (boolean, optional): Enable offline queueing (default: true)
+- `minDistance` (number, optional): Meters of movement before a new fix is queued (default: 50). Use `0` to send a fix every interval even when stationary, so uploads double as a heartbeat
 
 **Returns:** `Promise<void>`
 

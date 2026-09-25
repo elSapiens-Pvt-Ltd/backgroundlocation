@@ -116,6 +116,7 @@ public class LocationTrackingManager {
         serviceIntent.putExtra(WorkHourLocationService.EXTRA_SERVER_URL, state.serverUrl);
         serviceIntent.putExtra(WorkHourLocationService.EXTRA_AUTH_TOKEN, state.authToken);
         serviceIntent.putExtra(WorkHourLocationService.EXTRA_OFFLINE_QUEUE, state.enableOfflineQueue);
+        serviceIntent.putExtra(WorkHourLocationService.EXTRA_MIN_DISTANCE, state.minDistance);
 
         try {
             context.startForegroundService(serviceIntent);

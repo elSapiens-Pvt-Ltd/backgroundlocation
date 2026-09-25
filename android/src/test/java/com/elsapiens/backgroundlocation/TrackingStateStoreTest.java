@@ -137,6 +137,33 @@ public class TrackingStateStoreTest {
     }
 
     @Test
+    public void workHourMinDistanceRoundTripsIncludingZero() {
+        TrackingStateStore store = newStore();
+        store.saveWorkHourTracking(new TrackingStateStore.WorkHourState(
+            "eng-7", 60000L, "https://api.example.com/loc", null, true, 0f));
+
+        assertEquals(0f, store.getWorkHourTracking().minDistance, 0.0001f);
+    }
+
+    @Test
+    public void workHourMinDistanceDefaultsTo50Meters() {
+        // Sessions persisted by earlier versions have no min-distance key
+        TrackingStateStore store = newStore();
+        store.saveWorkHourTracking(new TrackingStateStore.WorkHourState(
+            "eng-7", 60000L, "https://api.example.com/loc", null, true));
+
+        assertEquals(TrackingStateStore.DEFAULT_WORK_HOUR_MIN_DISTANCE_METERS,
+            store.getWorkHourTracking().minDistance, 0.0001f);
+    }
+
+    @Test
+    public void negativeWorkHourMinDistanceIsClampedToZero() {
+        TrackingStateStore.WorkHourState state = new TrackingStateStore.WorkHourState(
+            "eng-7", 60000L, "https://api.example.com/loc", null, true, -5f);
+        assertEquals(0f, state.minDistance, 0.0001f);
+    }
+
+    @Test
     public void clearedWorkHourSessionYieldsNull() {
         TrackingStateStore store = newStore();
         store.saveWorkHourTracking(new TrackingStateStore.WorkHourState(

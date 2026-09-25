@@ -28,6 +28,8 @@ public class BackgroundLocationPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "isLocationServiceEnabled", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "openLocationSettings", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "openDeviceLocationSettings", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "isIgnoringBatteryOptimizations", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "openBatteryOptimizationSettings", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "startTracking", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "stopTracking", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "getTrackingStatus", returnType: CAPPluginReturnPromise),
@@ -179,6 +181,16 @@ public class BackgroundLocationPlugin: CAPPlugin, CAPBridgedPlugin {
         openAppSettings(call)
     }
 
+    /// iOS has no per-app battery optimization for background location; an app with
+    /// the location background mode and "Always" permission keeps receiving updates.
+    @objc func isIgnoringBatteryOptimizations(_ call: CAPPluginCall) {
+        call.resolve(["ignoring": true])
+    }
+
+    @objc func openBatteryOptimizationSettings(_ call: CAPPluginCall) {
+        call.resolve()
+    }
+
     private func openAppSettings(_ call: CAPPluginCall) {
         #if canImport(UIKit)
         DispatchQueue.main.async {
@@ -252,10 +264,12 @@ public class BackgroundLocationPlugin: CAPPlugin, CAPBridgedPlugin {
         let uploadIntervalMs = call.getDouble("uploadInterval") ?? TrackingStateStore.defaultUploadIntervalSeconds * 1000
         let authToken = call.getString("authToken")
         let enableOfflineQueue = call.getBool("enableOfflineQueue") ?? true
+        let minDistance = call.getDouble("minDistance") ?? TrackingStateStore.defaultWorkHourMinDistanceMeters
 
         location.workHourTracker.start(engineerId: engineerId, uploadInterval: uploadIntervalMs / 1000,
                                         serverUrl: serverUrl, authToken: authToken,
-                                        enableOfflineQueue: enableOfflineQueue) { [weak self] result in
+                                        enableOfflineQueue: enableOfflineQueue,
+                                        minDistance: minDistance) { [weak self] result in
             guard let self else { return }
             if result.success {
                 call.resolve(["backgroundLocationGranted": result.backgroundLocationGranted])

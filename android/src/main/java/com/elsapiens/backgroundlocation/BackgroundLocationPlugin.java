@@ -9,6 +9,7 @@ import android.location.LocationManager;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.PowerManager;
 import android.util.Log;
 
 import androidx.core.content.ContextCompat;
@@ -301,6 +302,48 @@ public class BackgroundLocationPlugin extends Plugin {
         }
     }
 
+    /**
+     * Whether the OS exempts this app from battery optimization. Optimized apps have
+     * their tracking delayed by Doze and killed by vendor battery managers.
+     */
+    @PluginMethod
+    public void isIgnoringBatteryOptimizations(PluginCall call) {
+        try {
+            PowerManager power = (PowerManager) getContext().getSystemService(Context.POWER_SERVICE);
+            JSObject result = new JSObject();
+            result.put("ignoring", power != null
+                && power.isIgnoringBatteryOptimizations(getContext().getPackageName()));
+            call.resolve(result);
+        } catch (Exception e) {
+            call.reject("Error reading battery optimization state: " + e.getMessage(), ErrorCodes.INTERNAL_ERROR);
+        }
+    }
+
+    /**
+     * Opens the battery-optimization list, where the user sets this app to "Don't
+     * optimize". Falls back to the app's settings page (Battery > Unrestricted) on
+     * devices that hide the list. Deliberately not the one-tap
+     * REQUEST_IGNORE_BATTERY_OPTIMIZATIONS dialog: that permission is restricted by
+     * Google Play policy and would merge into every consuming app's manifest.
+     */
+    @PluginMethod
+    public void openBatteryOptimizationSettings(PluginCall call) {
+        try {
+            Intent intent = new Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            if (intent.resolveActivity(getContext().getPackageManager()) == null) {
+                intent = new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+                intent.setData(Uri.parse("package:" + getContext().getPackageName()));
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            }
+            getContext().startActivity(intent);
+            call.resolve();
+        } catch (Exception e) {
+            Log.e(TAG, "Error opening battery optimization settings", e);
+            call.reject("Error opening battery optimization settings: " + e.getMessage(), ErrorCodes.INTERNAL_ERROR);
+        }
+    }
+
     // =================================================================================
     // TASK TRACKING
     // =================================================================================
@@ -378,7 +421,8 @@ public class BackgroundLocationPlugin extends Plugin {
                 call.getLong("uploadInterval", TrackingStateStore.DEFAULT_UPLOAD_INTERVAL_MS),
                 serverUrl,
                 call.getString("authToken"),
-                Boolean.TRUE.equals(call.getBoolean("enableOfflineQueue", true))
+                Boolean.TRUE.equals(call.getBoolean("enableOfflineQueue", true)),
+                call.getFloat("minDistance", TrackingStateStore.DEFAULT_WORK_HOUR_MIN_DISTANCE_METERS)
             );
 
             LocationTrackingManager.TrackingStartResult result = trackingManager.startWorkHourTracking(state);

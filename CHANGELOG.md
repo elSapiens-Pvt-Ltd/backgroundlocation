@@ -5,6 +5,24 @@ All notable changes to the Elsapiens Background Location Plugin are documented i
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - Unreleased
+
+### Added
+- **Work-hour heartbeat** — `startWorkHourTracking({ minDistance })` sets the
+  movement needed before a fix is queued (default 50 m, the previous fixed
+  value). `minDistance: 0` queues a fix every `uploadInterval` even when the
+  device does not move, so the server can tell "stationary" from "phone off or
+  app killed"; a live "last seen" map needs exactly that. Persisted with the
+  session, so system restarts keep it; sessions saved by earlier versions keep
+  50 m.
+- **Battery optimization helpers** — `isIgnoringBatteryOptimizations()` and
+  `openBatteryOptimizationSettings()`. An optimized Android app has its tracking
+  delayed by Doze and killed by vendor battery managers (Xiaomi, Oppo, Vivo,
+  Samsung), which silently stops all-day uploads. The settings screen is opened
+  rather than the one-tap `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` dialog, whose
+  permission Google Play restricts and which would leak into every consuming
+  app's manifest. iOS and web report `ignoring: true` (no such setting).
+
 ## [0.4.0] - 2026-09-21
 
 ### Added

@@ -14,6 +14,7 @@ import type {
   TrackingStatus,
   WorkHourLocationData,
   WorkHourTrackingOptions,
+  BatteryOptimizationStatus,
 } from './definitions';
 
 /**
@@ -69,6 +70,15 @@ export class BackgroundLocationWeb extends WebPlugin implements BackgroundLocati
 
   async openDeviceLocationSettings(): Promise<void> {
     console.warn('BackgroundLocation: openDeviceLocationSettings is not available on web');
+  }
+
+  async isIgnoringBatteryOptimizations(): Promise<BatteryOptimizationStatus> {
+    // Browsers have no battery-optimization setting to be exempt from.
+    return { ignoring: true };
+  }
+
+  async openBatteryOptimizationSettings(): Promise<void> {
+    console.warn('BackgroundLocation: openBatteryOptimizationSettings is not available on web');
   }
 
   async startTracking(options: StartTrackingOptions): Promise<StartTrackingResult> {
